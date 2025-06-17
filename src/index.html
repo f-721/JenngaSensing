@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>心拍数モニター</title>
+  <script>
+    const maxHeartRates = JSON.parse(localStorage.getItem("maxHeartRates") || "{}");
+
+    async function fetchHeartRate() {
+      try {
+        const res = await fetch('http://192.168.100.26:8080/api');
+        const text = await res.text();
+
+        const rateContainer = document.getElementById('rate');
+        const maxContainer = document.getElementById('max-rate');
+        rateContainer.innerHTML = '';
+        maxContainer.innerHTML = '';
+
+        const trimmed = text.trim();
+
+        if (!trimmed || trimmed.toLowerCase() === 'null' || trimmed.toLowerCase() === 'undefined') {
+          rateContainer.innerText = 'データがありません';
+          maxContainer.innerText = '最大心拍数を記録できません';
+        } else {
+          const lines = trimmed.split('\n');
+          for (const line of lines) {
+            if (!line.includes(':')) continue;
+
+            const [watch, bpmStr] = line.split(':').map(s => s.trim());
+            const bpm = parseInt(bpmStr);
+            if (isNaN(bpm)) continue;
+
+            // 表示
+            const div = document.createElement('div');
+            div.innerText = `心拍数: ${bpm} bpm (${watch})`;
+            div.style.fontSize = '1.5em';
+            div.style.fontWeight = 'bold';
+            rateContainer.appendChild(div);
+
+            // 最大値の更新と保存
+            if (!maxHeartRates[watch] || bpm > maxHeartRates[watch]) {
+              maxHeartRates[watch] = bpm;
+              localStorage.setItem("maxHeartRates", JSON.stringify(maxHeartRates));
+            }
+          }
+
+          // 最大心拍数の表示
+          for (const [watch, maxBpm] of Object.entries(maxHeartRates)) {
+            const div = document.createElement('div');
+            div.innerText = `最大心拍数: ${maxBpm} bpm (${watch})`;
+            div.style.fontSize = '1.5em';
+            div.style.fontWeight = 'bold';
+            maxContainer.appendChild(div);
+          }
+        }
+      } catch (error) {
+        document.getElementById('rate').innerText = '取得エラー';
+        console.error('取得中にエラーが発生しました:', error);
+      }
+    }
+
+    setInterval(fetchHeartRate, 1000);
+    window.onload = () => {
+      localStorage.removeItem("maxHeartRates");  // ← これでサーバー再起動後に最大値もリセット
+      fetchHeartRate();
+};
+  </script>
+</head>
+<body>
+  <h1>心拍数モニター</h1>
+
+  <div style="display: flex; justify-content: space-between;">
+    <div id="rate">
+      <p>読み込み中...</p>
+    </div>
+
+    <div id="max-rate">
+      <p>最大心拍数を記録中...</p>
+    </div>
+  </div>
+
+  <div style="text-align: center; margin-top: 20px;">
+    <button onclick="location.href='graph.html'" style="font-size: 1.2em; padding: 10px 20px;">
+      グラフ表示ページへ
+    </button>
+  </div>
+</body>
+</html>
