@@ -3,12 +3,77 @@
 <head>
   <meta charset="UTF-8">
   <title>心拍数モニター</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #f0f8ff;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    #rate, #max-rate {
+      width: 45%;
+      padding: 10px;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .flex-container {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .button-container {
+      text-align: center;
+      margin-top: 20px;
+    }
+    button {
+      font-size: 1.2em;
+      padding: 10px 20px;
+      margin: 10px;
+      border: none;
+      border-radius: 6px;
+      background-color: #4CAF50;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .stop-button {
+      background-color: #f44336;
+    }
+    .stop-button:hover {
+      background-color: #e53935;
+    }
+  </style>
   <script>
+    let intervalId = null;
     const maxHeartRates = JSON.parse(localStorage.getItem("maxHeartRates") || "{}");
+
+    function startGame() {
+      if (intervalId !== null) return;  // すでに動作中
+      localStorage.setItem("gameStarted", "true");
+      intervalId = setInterval(fetchHeartRate, 1000);
+      document.getElementById('status').innerText = 'ゲーム状態: 開始中';
+    }
+
+    function stopGame() {
+      if (intervalId !== null) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+      localStorage.setItem("gameStarted", "false");
+      document.getElementById('status').innerText = 'ゲーム状態: 終了';
+    }
 
     async function fetchHeartRate() {
       try {
-        const res = await fetch('http://192.168.100.26:8080/api');
+        const res = await fetch('/api');
         const text = await res.text();
 
         const rateContainer = document.getElementById('rate');
@@ -59,17 +124,23 @@
       }
     }
 
-    setInterval(fetchHeartRate, 1000);
     window.onload = () => {
-      localStorage.removeItem("maxHeartRates");  // ← これでサーバー再起動後に最大値もリセット
-      fetchHeartRate();
-};
+      localStorage.removeItem("maxHeartRates");
+      document.getElementById('status').innerText = 'ゲーム状態: 終了';
+      if (localStorage.getItem("gameStarted") === "true") {
+        startGame();
+      }
+    };
   </script>
 </head>
 <body>
   <h1>心拍数モニター</h1>
 
-  <div style="display: flex; justify-content: space-between;">
+  <div id="status" style="text-align:center; font-weight:bold; margin-bottom:10px;">
+    ゲーム状態: 未設定
+  </div>
+
+  <div class="flex-container">
     <div id="rate">
       <p>読み込み中...</p>
     </div>
@@ -79,10 +150,23 @@
     </div>
   </div>
 
-  <div style="text-align: center; margin-top: 20px;">
-    <button onclick="location.href='graph.html'" style="font-size: 1.2em; padding: 10px 20px;">
-      グラフ表示ページへ
-    </button>
+  <div class="button-container">
+    <button onclick="startGame()">ゲーム開始</button>
+    <button class="stop-button" onclick="stopGame()">ゲーム終了</button>
+    <button onclick="location.href='graph.html'">グラフ表示ページへ</button>
   </div>
+
+  <script>
+  async function startGame() {
+    await fetch('/start', { method: 'POST' });
+    alert('ゲームを開始しました');
+  }
+
+  async function stopGame() {
+    await fetch('/stop', { method: 'POST' });
+    alert('ゲームを終了しました');
+  }
+</script>
+
 </body>
 </html>
